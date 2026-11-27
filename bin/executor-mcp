@@ -18,7 +18,16 @@ EXECUTOR_BIN = os.path.expanduser("~/.local/share/mise/shims/executor")
 
 
 def main() -> int:
-    child = subprocess.Popen([EXECUTOR_BIN, "mcp", *sys.argv[1:]], stdin=subprocess.PIPE, bufsize=0)
+    env = os.environ.copy()
+    auth_path = os.path.expanduser("~/.executor/ubuntu-auth.json")
+    if "EXECUTOR_AUTH_HEADER" not in env and os.path.exists(auth_path):
+        try:
+            token = json.load(open(auth_path, encoding="utf-8")).get("token")
+            if token:
+                env["EXECUTOR_AUTH_HEADER"] = f"Bearer {token}"
+        except (OSError, ValueError):
+            pass
+    child = subprocess.Popen([EXECUTOR_BIN, "mcp", *sys.argv[1:]], stdin=subprocess.PIPE, bufsize=0, env=env)
 
     def pump_in() -> None:
         initialized = False
