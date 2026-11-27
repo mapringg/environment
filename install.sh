@@ -20,7 +20,9 @@ link_skills() {
     ln -sfn "$s" "$dst/$(basename "$s")"
   done
   for s in "$dst"/*; do
-    [ -L "$s" ] && [ ! -e "$s" ] && rm -f "$s"
+    if [ -L "$s" ] && [ ! -e "$s" ]; then
+      rm -f "$s"
+    fi
   done
 }
 
