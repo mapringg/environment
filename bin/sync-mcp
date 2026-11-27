@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""Configure Antigravity, Codex, and Claude Code to use Executor MCP and seed integrations."""
+
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MANIFEST_PATH = os.path.join(REPO_ROOT, "mcp", "servers.json")
+CLAUDE_SETTINGS_PATH = os.path.join(REPO_ROOT, "claude", "settings.json")
+
+EXECUTOR_BIN = os.path.expanduser("~/.local/share/mise/shims/executor")
+# Every client launches Executor through bin/executor-mcp, which drops
+# notifications sent before initialize (Antigravity sends one, and it kills
+# Executor's stdio bridge).
+MCP_COMMAND = os.path.join(REPO_ROOT, "bin", "executor-mcp")
+MCP_ARGS = ["--mode", "passthrough", "--no-artifacts"]
+LEGACY_SERVERS = {"figma"}
+
+
+def load_manifest() -> dict:
+    with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def sync_antigravity() -> None:
+    payload = {
+        "mcpServers": {
+            "executor": {
+                "command": MCP_COMMAND,
+                "args": MCP_ARGS,
+            }
+        }
+    }
+    rendered = json.dumps(payload, indent=2) + "\n"
+    patterns = [
+        os.path.expanduser("~/.t3/userdata/providers/antigravity/*/config"),
+        os.path.expanduser("~/.gemini/config"),
+    ]
+    for pattern in patterns:
+        for cfg_dir in glob.glob(pattern):
+            if not os.path.isdir(cfg_dir):
+                continue
+            target = os.path.join(cfg_dir, "mcp_config.json")
+            if os.path.islink(target):
+                os.unlink(target)
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(rendered)
+
+
+def sync_codex(servers: dict) -> None:
+    codex_path = os.path.expanduser("~/.codex/config.toml")
+    if not os.path.exists(codex_path):
+        return
+    with open(codex_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    # Strip existing [mcp_servers.<name>] sections for legacy servers and executor.
+    managed = set(servers.keys()) | LEGACY_SERVERS | {"executor"}
+    lines = text.splitlines(keepends=True)
+    kept = []
+    skipping = False
+    section_re = re.compile(r"^\[([^\]]+)\]\s*$")
+    for line in lines:
+        m = section_re.match(line.strip())
+        if m:
+            sec = m.group(1).strip()
+            if sec.startswith("mcp_servers."):
+                srv = sec.split(".", 1)[1].split(".", 1)[0].strip('"\'')
+                skipping = srv in managed
+            else:
+                skipping = False
+        if not skipping:
+            kept.append(line)
+
+    base = "".join(kept).rstrip() + "\n"
+    args_toml = ", ".join(json.dumps(a) for a in MCP_ARGS)
+    block = (
+        "\n[mcp_servers.executor]\n"
+        f'command = {json.dumps(MCP_COMMAND)}\n'
+        f"args = [{args_toml}]\n"
+    )
+
+    with open(codex_path, "w", encoding="utf-8") as f:
+        f.write(base + block)
+
+
+def sync_claude(servers: dict) -> None:
+    claude_json = os.path.expanduser("~/.claude.json")
+    data = {}
+    if os.path.exists(claude_json):
+        with open(claude_json, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    mcp_servers = data.setdefault("mcpServers", {})
+    managed = set(servers.keys()) | LEGACY_SERVERS
+    for name in managed:
+        mcp_servers.pop(name, None)
+    mcp_servers["executor"] = {
+        "type": "stdio",
+        "command": MCP_COMMAND,
+        "args": MCP_ARGS,
+    }
+    with open(claude_json, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+    with open(CLAUDE_SETTINGS_PATH, "r", encoding="utf-8") as f:
+        settings = json.load(f)
+
+    # Remove per-repo enabledMcpjsonServers for migrated servers.
+    if "enabledMcpjsonServers" in settings:
+        remaining = [s for s in settings["enabledMcpjsonServers"] if s not in managed]
+        if remaining:
+            settings["enabledMcpjsonServers"] = remaining
+        else:
+            del settings["enabledMcpjsonServers"]
+
+    # Remove legacy mcp__<migrated>__* entries from permissions.deny.
+    perms = settings.setdefault("permissions", {})
+    deny = perms.get("deny", [])
+    prefixes = tuple(f"mcp__{name}__" for name in managed)
+    perms["deny"] = [entry for entry in deny if not entry.startswith(prefixes)]
+
+    with open(CLAUDE_SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2)
+        f.write("\n")
+
+
+def seed_executor(servers: dict) -> None:
+    if not os.path.exists(EXECUTOR_BIN):
+        return
+    res = subprocess.run(
+        [EXECUTOR_BIN, "call", "executor", "coreTools", "integrations", "list", "{}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if res.returncode != 0:
+        print("sync-mcp: Executor daemon not reachable; skipping integration seed", file=sys.stderr)
+        return
+    try:
+        parsed = json.loads(res.stdout)
+        existing = {item["slug"] for item in parsed.get("data", {}).get("integrations", [])}
+    except json.JSONDecodeError:
+        return
+
+    for name, cfg in servers.items():
+        if name in existing:
+            continue
+        payload = json.dumps(
+            {
+                "transport": "remote",
+                "slug": name,
+                "name": name.capitalize(),
+                "endpoint": cfg["url"],
+                "auth": {"kind": "oauth2"},
+            }
+        )
+        add = subprocess.run(
+            [EXECUTOR_BIN, "call", "executor", "mcp", "addServer", payload],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if add.returncode != 0:
+            print(f"sync-mcp: failed to seed {name}: {add.stderr.strip()}", file=sys.stderr)
+            continue
+        m = re.search(r"executionId:\s*(\S+)", add.stdout)
+        if m:
+            resume = subprocess.run(
+                [EXECUTOR_BIN, "resume", "--execution-id", m.group(1), "--action", "accept", "--content", "{}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if resume.returncode != 0:
+                print(f"sync-mcp: failed to approve {name}: {resume.stderr.strip()}", file=sys.stderr)
+
+
+def main() -> None:
+    servers = load_manifest()
+    sync_antigravity()
+    sync_codex(servers)
+    sync_claude(servers)
+    seed_executor(servers)
+
+
+if __name__ == "__main__":
+    main()

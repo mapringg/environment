@@ -1,0 +1,28 @@
+model_provider = "cliproxy"
+model_reasoning_effort = "medium"
+
+[features]
+plugins = false
+image_generation = false
+goals = false
+sleep_tool = false
+view_image = false
+
+[skills]
+bundled.enabled = false
+
+[[hooks.PreToolUse]]
+matcher = ".*"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 -I $HOME/.claude/skills/secret/scripts/guard.py"
+timeout = 10
+statusMessage = "Checking for secret access"
+
+[model_providers.cliproxy]
+name = "CLIProxyAPI"
+base_url = "http://127.0.0.1:8317/v1"
+wire_api = "responses"
+supports_websockets = true
+env_key = "CLIPROXY_API_KEY"

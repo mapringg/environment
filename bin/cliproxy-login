@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd ~/.config/cliproxy
+case ${1:-} in
+  codex) exec mise x -- cli-proxy-api -config config.yaml -codex-device-login ;;
+  claude)
+    echo "Browser machine: ssh -N -L 54545:localhost:54545 mapring@ubuntu, then a private window"
+    exec mise x -- cli-proxy-api -config config.yaml -claude-login -no-browser ;;
+  *) echo "usage: cliproxy-login claude|codex" >&2; exit 1 ;;
+esac

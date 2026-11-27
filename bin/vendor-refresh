@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+V=$(dirname "$(readlink -f "$0")")/../vendor
+H=$(mktemp -d)
+trap 'rm -rf "$H"' EXIT
+case ${1:-tstack} in
+  tstack)
+    git clone -q --depth 1 https://github.com/t3dotgg/tstack "$H/tstack"
+    rm -rf "$H/tstack/.git" "${V:?}/tstack"
+    for y in "$H"/tstack/skills/*/agents/openai.yaml; do
+      [ -f "$y" ] || continue
+      name=$(basename "$(dirname "$(dirname "$y")")")
+      sed -i -E "s/^([[:space:]]*display_name:[[:space:]]*).*/\1\"$name\"/" "$y"
+    done
+    mv "$H/tstack" "$V/tstack" ;;
+  *) echo "usage: vendor-refresh [tstack]" >&2; exit 1 ;;
+esac

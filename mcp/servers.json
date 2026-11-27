@@ -1,0 +1,6 @@
+{
+  "paper": { "url": "https://mcp.paper.design" },
+  "jam": { "url": "https://mcp.jam.dev/mcp" },
+  "mobbin": { "url": "https://api.mobbin.com/mcp" },
+  "tldraw": { "url": "https://mcp.tldraw.com/mcp" }
+}

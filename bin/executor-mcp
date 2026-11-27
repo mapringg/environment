@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Stdio wrapper for `executor mcp` that drops notifications sent before initialize.
+
+Antigravity sends `notifications/roots/list_changed` before `initialize`.
+Executor's stdio bridge forwards it to a daemon session that does not exist
+yet, gets "Server not initialized", and exits. Antigravity's reconnect lands
+after the first prompt has started, so the session never gets Executor tools.
+The MCP spec forbids notifications before initialize, so dropping them is safe.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import threading
+
+EXECUTOR_BIN = os.path.expanduser("~/.local/share/mise/shims/executor")
+
+
+def main() -> int:
+    child = subprocess.Popen([EXECUTOR_BIN, "mcp", *sys.argv[1:]], stdin=subprocess.PIPE, bufsize=0)
+
+    def pump_in() -> None:
+        initialized = False
+        try:
+            for line in sys.stdin.buffer:
+                try:
+                    msg = json.loads(line)
+                except ValueError:
+                    msg = None
+                if isinstance(msg, dict):
+                    method = msg.get("method")
+                    if method == "initialize":
+                        initialized = True
+                    elif not initialized and method and "id" not in msg:
+                        continue
+                child.stdin.write(line)
+                child.stdin.flush()
+        except (BrokenPipeError, OSError):
+            pass
+        finally:
+            try:
+                child.stdin.close()
+            except OSError:
+                pass
+
+    threading.Thread(target=pump_in, daemon=True).start()
+    return child.wait()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

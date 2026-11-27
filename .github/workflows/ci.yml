@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: mapringg/standard/.github/actions/check-pr@2da38877f9f3361e0847f11aa0c7b581163b6b10 # v1.11.0
+      - run: |
+          for script in install.sh bin/cliproxy-login bin/vendor-refresh skills/secret/scripts/guard-test.sh; do
+            bash -n "$script" || exit
+          done
+          python3 -m py_compile bin/sync-mcp bin/executor-mcp
+      - name: Scan for leaks
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --no-banner --redact

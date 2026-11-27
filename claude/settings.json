@@ -1,0 +1,83 @@
+{
+  "apiKeyHelper": "cat ~/.config/cliproxy/key",
+  "syncClaudeAiSkills": false,
+  "syncClaudeAiPlugins": false,
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8317"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "permissions": {
+    "deny": [
+      "AskUserQuestion",
+      "ScheduleWakeup",
+      "SendFeedback",
+      "ShareOnboardingGuide",
+      "CronCreate",
+      "CronDelete",
+      "CronList",
+      "DesignSync",
+      "EnterPlanMode",
+      "ExitPlanMode",
+      "EnterWorktree",
+      "ExitWorktree",
+      "NotebookEdit",
+      "PushNotification",
+      "RemoteTrigger",
+      "ReportFindings",
+      "ListAgents",
+      "PublishPlugin",
+      "Agent(claude)",
+      "Agent(Plan)",
+      "Agent(statusline-setup)",
+      "Agent(Explore)"
+    ]
+  },
+  "model": "opus[1m]",
+  "disableClaudeAiConnectors": true,
+  "disableBundledSkills": true,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Grep|Glob|Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I $HOME/.claude/skills/secret/scripts/guard.py"
+          }
+        ]
+      }
+    ]
+  },
+  "disableAgentView": false,
+  "disableRemoteControl": true,
+  "disableWorkflows": true,
+  "enableArtifact": false,
+  "enabledPlugins": {
+    "cc-plugin-agents-md@builtin": true,
+    "cc-plugin-diff@builtin": false,
+    "cc-plugin-plugin-authoring@builtin": false,
+    "cc-plugin-sec-default@builtin": false,
+    "cc-plugin-telemetry@builtin": false,
+    "cc-plugin-privacy@builtin": false,
+    "cc-plugin-promos@builtin": false
+  },
+  "extraKnownMarketplaces": {},
+  "outputStyle": "Concise",
+  "feedbackDrafts": "off",
+  "spinnerTipsEnabled": false,
+  "promptCacheTtl": "1h",
+  "effortLevel": "medium",
+  "autoCompactWindow": 250000,
+  "promptSuggestionEnabled": false,
+  "awaySummaryEnabled": false,
+  "tui": "fullscreen",
+  "autoMemoryEnabled": false,
+  "showThinkingSummaries": false,
+  "theme": "dark",
+  "agentPushNotifEnabled": false,
+  "disableDeepLinkRegistration": "disable"
+}
