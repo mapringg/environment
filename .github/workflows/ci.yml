@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: mapringg/standard/.github/actions/check-pr@2da38877f9f3361e0847f11aa0c7b581163b6b10 # v1.11.0
+      - uses: mapringg/standard/.github/actions/check-pr@28dff962ef8ca9f8f1f275ac60cee68ed56372af # v1.13.0
       - run: |
           for script in install.sh bin/cliproxy-login bin/vendor-refresh skills/secret/scripts/guard-test.sh; do
             bash -n "$script" || exit
