@@ -14,17 +14,19 @@ if [ "$IS_HUB" = false ]; then
 import json, sys
 d = json.load(sys.stdin)
 for p in (d.get("Peer") or {}).values():
-    if (p.get("HostName") or "").lower() == "ubuntu":
+    if (p.get("HostName") or "").lower() == "ubuntu" and p.get("Online"):
         print((p.get("DNSName") or "").rstrip("."))
         break
 ' 2>/dev/null || true)
-fi
-if [ "$IS_HUB" = true ] || [ -z "$HUB_DNS" ]; then
-  CLIPROXY_URL="http://127.0.0.1:8317"
-  EXECUTOR_URL=""
-else
+  if [ -z "$HUB_DNS" ]; then
+    echo "install.sh: could not find online Tailscale peer 'ubuntu' for hub routing" >&2
+    exit 1
+  fi
   CLIPROXY_URL="https://${HUB_DNS}:8317"
   EXECUTOR_URL="https://${HUB_DNS}:4789"
+else
+  CLIPROXY_URL="http://127.0.0.1:8317"
+  EXECUTOR_URL=""
 fi
 
 MISE=$(command -v mise || true)
@@ -33,7 +35,9 @@ if [ -z "$MISE" ]; then
   MISE=~/.local/bin/mise
 fi
 "$MISE" use -g node
-"$MISE" use -g claude codex op 'fnox[workflow=release.yml]' age ripgrep github:router-for-me/CLIProxyAPI npm:executor@1.6.11
+MISE_TOOLS=(claude codex op 'fnox[workflow=release.yml]' age ripgrep npm:executor@1.6.11)
+[ "$IS_HUB" = true ] && MISE_TOOLS+=(github:router-for-me/CLIProxyAPI)
+"$MISE" use -g "${MISE_TOOLS[@]}"
 
 link_skills() {
   local dst=$1 s
@@ -106,6 +110,7 @@ mkdir -p ~/.ssh/config.d && chmod 700 ~/.ssh ~/.ssh/config.d
 ln -sf "$E/ssh/config" ~/.ssh/config
 if [ -f ~/.config/fnox/config.toml ]; then
   secret restore mapringg.ssh-github ~/.ssh/id_ed25519
+  [ -f ~/.ssh/id_ed25519 ] && [ ! -f ~/.ssh/id_ed25519.pub ] && ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
   secret restore mapringg.ssh-hosts ~/.ssh/config.d/hosts
   secret restore zanroo.ssh-inf ~/.ssh/zanroo
   secret restore codecipher.ssh ~/.ssh/codecipher
@@ -115,17 +120,17 @@ if [ -f ~/.config/fnox/config.toml ]; then
   if [ "$IS_HUB" = true ]; then
     secret restore mapringg.cliproxy-config ~/.config/cliproxy/config.yaml
     secret restore mapringg.cliproxy-management-key ~/.config/cliproxy/management-key
-  else
-    secret restore mapringg.executor-auth ~/.executor/ubuntu-auth.json
-  fi
-  if [ "$OS" = Linux ]; then
-    if sudo -v 2>/dev/null && ! sudo test -e /etc/wireguard/wg0.conf; then
-      W=$(mktemp -d)
-      secret restore zanroo.wireguard "$W/wg0.conf"
-      sudo install -D -m 600 -o root -g root "$W/wg0.conf" /etc/wireguard/wg0.conf
-      rm -rf "$W"
+    if [ "$OS" = Linux ]; then
+      if sudo -v 2>/dev/null && ! sudo test -e /etc/wireguard/wg0.conf; then
+        W=$(mktemp -d)
+        secret restore zanroo.wireguard "$W/wg0.conf"
+        sudo install -D -m 600 -o root -g root "$W/wg0.conf" /etc/wireguard/wg0.conf
+        rm -rf "$W"
+      fi
+      sudo -n true 2>/dev/null && sudo systemctl enable --now -q wg-quick@wg0
     fi
-    sudo -n true 2>/dev/null && sudo systemctl enable -q wg-quick@wg0
+  else
+    secret restore --force mapringg.executor-auth ~/.executor/ubuntu-auth.json
   fi
 fi
 
@@ -166,7 +171,7 @@ EOF
 
   tailscale serve status --json 2>/dev/null | grep -q '127.0.0.1:8317' || tailscale serve --bg --https=8317 http://127.0.0.1:8317 >/dev/null
 
-  "$MISE" x -- executor service status >/dev/null 2>&1 || "$MISE" x -- executor install
+  "$MISE" x -- executor service status 2>/dev/null | grep -q 'Registered: yes' || "$MISE" x -- executor install
   TS_DNS=$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Self",{}).get("DNSName","").rstrip("."))' 2>/dev/null || true)
   if [ -n "$TS_DNS" ]; then
     mkdir -p ~/.config/systemd/user/sh.executor.daemon.service.d
@@ -176,10 +181,36 @@ Environment=EXECUTOR_WEB_BASE_URL=https://${TS_DNS}:4789
 EOF
     systemctl --user daemon-reload
     systemctl --user restart sh.executor.daemon.service
-    for _ in $(seq 1 20); do "$MISE" x -- executor tools integrations >/dev/null 2>&1 && break; sleep 0.25; done
+    exec_ready=false
+    for _ in $(seq 1 20); do
+      if "$MISE" x -- executor tools integrations >/dev/null 2>&1; then
+        exec_ready=true
+        break
+      fi
+      sleep 0.25
+    done
+    if [ "$exec_ready" = false ]; then
+      echo "install.sh: Executor daemon failed to become ready after restart" >&2
+      exit 1
+    fi
     tailscale serve status --json 2>/dev/null | grep -q '127.0.0.1:4789' || tailscale serve --bg --https=4789 http://127.0.0.1:4789 >/dev/null
   fi
+  if [ -f ~/.config/fnox/config.toml ] && [ -f ~/.executor/server-control/auth.json ]; then
+    secret save mapringg.executor-auth ~/.executor/server-control/auth.json
+  fi
 elif [ -n "$EXECUTOR_URL" ]; then
+  if [ "$OS" = Linux ]; then
+    systemctl --user disable --now cliproxyapi.service sh.executor.daemon.service 2>/dev/null || true
+    rm -f ~/.config/systemd/user/cliproxyapi.service
+    tailscale serve --https=8317 off 2>/dev/null || true
+    tailscale serve --https=4789 off 2>/dev/null || true
+    if systemctl is-active --quiet wg-quick@wg0 2>/dev/null || systemctl is-enabled --quiet wg-quick@wg0 2>/dev/null; then
+      if ! sudo -n systemctl disable --now -q wg-quick@wg0 2>/dev/null; then
+        echo "install.sh: wg-quick@wg0 is still enabled/active on spoke; disable it with sudo systemctl disable --now wg-quick@wg0" >&2
+        exit 1
+      fi
+    fi
+  fi
   "$MISE" x -- executor server add ubuntu "$EXECUTOR_URL" --default --header-env Authorization=EXECUTOR_AUTH_HEADER >/dev/null
 fi
 python3 "$E/bin/sync-mcp"
@@ -188,6 +219,9 @@ for p in fnox.local.toml 'fnox.*.local.toml' mise.local.toml 'mise.*.local.toml'
   grep -qxF "$p" ~/.config/git/ignore 2>/dev/null || echo "$p" >> ~/.config/git/ignore
 done
 mkdir -p ~/.config/environment.d
+cat > ~/.config/environment.d/path.conf <<EOF
+PATH=$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EOF
 cat > ~/.config/environment.d/telemetry.conf <<'EOF'
 DO_NOT_TRACK=1
 NEXT_TELEMETRY_DISABLED=1

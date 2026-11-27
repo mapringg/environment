@@ -5,12 +5,13 @@ import glob
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST_PATH = os.path.join(REPO_ROOT, "mcp", "servers.json")
-CLAUDE_SETTINGS_PATH = os.path.join(REPO_ROOT, "claude", "settings.json")
+CLAUDE_SETTINGS_PATH = os.path.expanduser("~/.claude/settings.json")
 
 EXECUTOR_BIN = os.path.expanduser("~/.local/share/mise/shims/executor")
 # Every client launches Executor through bin/executor-mcp, which drops
@@ -185,7 +186,8 @@ def main() -> None:
     sync_antigravity()
     sync_codex(servers)
     sync_claude(servers)
-    seed_executor(servers)
+    if socket.gethostname().split(".")[0] == "ubuntu":
+        seed_executor(servers)
 
 
 if __name__ == "__main__":
