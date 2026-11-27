@@ -10,6 +10,7 @@ if [ -z "$MISE" ]; then
   curl -fsSL https://mise.run/bash | sh
   MISE=~/.local/bin/mise
 fi
+"$MISE" use -g node
 "$MISE" use -g claude codex op 'fnox[workflow=release.yml]' age ripgrep github:router-for-me/CLIProxyAPI npm:executor@1.6.11
 
 link_skills() {
