@@ -219,6 +219,11 @@ python3 "$E/bin/sync-mcp"
 for p in fnox.local.toml 'fnox.*.local.toml' mise.local.toml 'mise.*.local.toml'; do
   grep -qxF "$p" ~/.config/git/ignore 2>/dev/null || echo "$p" >> ~/.config/git/ignore
 done
+mkdir -p ~/.config/git/hooks
+for h in applypatch-msg pre-applypatch post-applypatch pre-commit pre-merge-commit prepare-commit-msg commit-msg post-commit pre-rebase post-checkout post-merge pre-push post-rewrite pre-auto-gc push-to-checkout; do
+  ln -sf "$E/git/hooks/dispatch" ~/.config/git/hooks/$h
+done
+git config --global core.hooksPath ~/.config/git/hooks
 mkdir -p ~/.config/environment.d
 cat > ~/.config/environment.d/path.conf <<EOF
 PATH=$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
