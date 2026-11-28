@@ -1,3 +1,6 @@
+# OrbStack's 'orb' host on apple. ssh skips this Include where the file is missing.
+Include ~/.orbstack/ssh/config
+
 # Work hosts live in 1Password (mapringg.ssh-hosts); install.sh restores them here.
 Include ~/.ssh/config.d/*
 
