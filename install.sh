@@ -240,6 +240,30 @@ if [ "$OS" = Darwin ]; then
   touch ~/.zshrc
   grep -q 'HOME/.local/bin' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
   grep -q 'CLIPROXY_API_KEY' ~/.zshrc || echo '[ -f ~/.config/cliproxy/key ] && export CLIPROXY_API_KEY="$(cat ~/.config/cliproxy/key)"' >> ~/.zshrc
+  # Apps opened from the Dock, like T3 Code, don't read ~/.zshrc. This login item hands the key to
+  # them, as the systemd EnvironmentFile does on Ubuntu, so Codex can reach CLIProxyAPI.
+  AGENT=~/Library/LaunchAgents/sh.environment.cliproxy-key.plist
+  mkdir -p ~/Library/LaunchAgents
+  cat > "$AGENT" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>sh.environment.cliproxy-key</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>[ -f "$HOME/.config/cliproxy/key" ] &amp;&amp; launchctl setenv CLIPROXY_API_KEY "$(cat "$HOME/.config/cliproxy/key")"</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>
+PLIST
+  launchctl bootout "gui/$(id -u)" "$AGENT" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$AGENT"
   grep -q 'environment.d/telemetry.conf' ~/.zshrc || cat >> ~/.zshrc <<'ZSH'
 set -a; . ~/.config/environment.d/telemetry.conf; set +a
 ZSH
