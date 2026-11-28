@@ -23,7 +23,7 @@ Use the same names in T3 chat and Apple Terminal.
 | ----------------- | --------------------------------------------------------------------------- |
 | `desktop wake`    | Send Wake-on-LAN from Ubuntu. In T3, wait until the desktop answers.         |
 | `desktop suspend` | Check for active work, suspend Ubuntu, then confirm the desktop goes offline. |
-| `desktop windows` | Run the existing Windows reboot helper after checking for active work.       |
+| `desktop windows` | Select Windows for the next boot after checking for active work.             |
 
 On Apple, update the Environment checkout and rerun `install.sh` to put `desktop` on your PATH.
 Connect to Tailscale before running it. The terminal shortcut acts immediately.
@@ -45,10 +45,7 @@ ssh -t desktop 'sudo systemctl suspend'
 
 ### Reboot into Windows
 
-Run the existing `reboot-windows` Bash function on desktop Ubuntu after checking for active work.
+After checking for active work, run `desktop windows` from Apple or Ubuntu Terminal.
 
-```sh
-ssh -t desktop 'bash -ic reboot-windows'
-```
-
-The helper selects Windows for the next boot. Check the `windows` Tailscale device after reboot.
+The command finds Windows Boot Manager in GRUB and sets it for the next boot only.
+Check the `windows` Tailscale device after reboot.

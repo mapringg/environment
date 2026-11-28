@@ -17,6 +17,17 @@ wake() (
     'printf "%s\n" "${DESKTOP_MAC:?Desktop Ethernet MAC is missing}" | "$1"' bash "$helper"
 )
 
+windows() {
+  exec ssh -t desktop "$(cat <<'SCRIPT'
+if ! entry=$(sudo grep -m1 -oP "menuentry '\KWindows Boot Manager[^']*" /boot/grub/grub.cfg) || [ -z "$entry" ]; then
+  echo "Windows Boot Manager entry not found in /boot/grub/grub.cfg" >&2
+  exit 1
+fi
+sudo grub-reboot "$entry" && sudo reboot
+SCRIPT
+)"
+}
+
 if [ "$#" -ne 1 ]; then
   echo 'Usage: desktop {wake|suspend|windows}' >&2
   exit 2
@@ -25,7 +36,7 @@ fi
 case "$1" in
   wake) wake ;;
   suspend) exec ssh -t desktop 'sudo systemctl suspend' ;;
-  windows) exec ssh -t desktop 'bash -ic reboot-windows' ;;
+  windows) windows ;;
   *)
     echo 'Usage: desktop {wake|suspend|windows}' >&2
     exit 2
