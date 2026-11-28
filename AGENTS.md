@@ -8,7 +8,7 @@
 - Use linked T3 environments to delegate to `apple` or `desktop`. Ubuntu is the hub.
 - Find fleet instructions and the wake helper in `~/code/mapringg/environment`.
 - Wake `desktop` from `ubuntu` with `bin/wake-desktop` and the MAC stored in 1Password.
-- Check for active work before suspending `desktop`. Run `systemctl suspend` there.
+- Check for active work before suspending `desktop` over SSH. Use sudo if required.
 
 ## Sources
 

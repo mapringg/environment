@@ -28,8 +28,8 @@ The helper reads the Ethernet MAC from standard input. Use the stored field with
 Wait for the desktop T3 environment to become reachable before delegating there.
 Wake-on-LAN needs Ethernet and standby power. A full shutdown wakes only if the firmware supports it.
 
-Before suspending, check for active work on the desktop. Send the suspend command over Tailscale SSH.
+Before suspending, check for active work on the desktop. Use a terminal so sudo can prompt if needed.
 
 ```sh
-ssh desktop 'systemctl suspend'
+ssh -t desktop 'sudo systemctl suspend'
 ```
