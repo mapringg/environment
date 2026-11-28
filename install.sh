@@ -224,6 +224,8 @@ for h in applypatch-msg pre-applypatch post-applypatch pre-commit pre-merge-comm
   ln -sf "$E/git/hooks/dispatch" ~/.config/git/hooks/$h
 done
 git config --global core.hooksPath ~/.config/git/hooks
+# Use SSH for every GitHub remote, including https:// clones, so git never asks for an https login.
+git config --global url."git@github.com:".insteadOf https://github.com/
 mkdir -p ~/.config/environment.d
 cat > ~/.config/environment.d/path.conf <<EOF
 PATH=$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
