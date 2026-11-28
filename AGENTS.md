@@ -9,6 +9,7 @@
 - Find fleet instructions and the wake helper in `~/code/mapringg/environment`.
 - Use `desktop wake`, `desktop suspend`, and `desktop windows` for desktop power.
 - Check for active work before suspending or rebooting `desktop`.
+- Name branches `mapring/<kebab-case summary>`. Rename placeholders with `git branch -m`.
 
 ## Sources
 

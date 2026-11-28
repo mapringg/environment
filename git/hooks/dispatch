@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Global git hook installed through core.hooksPath. Every hook name links here.
+# pre-push rejects new branches outside mapring/<kebab-case>. Every hook then
+# runs the repository's own .git/hooks/<name>, which core.hooksPath would skip.
+set -euo pipefail
+
+name=$(basename "$0")
+input=""
+
+if [ "$name" = pre-push ]; then
+  input=$(cat)
+  bad=""
+  while read -r _ local_sha remote_ref remote_sha; do
+    case $remote_ref in refs/heads/*) ;; *) continue ;; esac
+    branch=${remote_ref#refs/heads/}
+    case $local_sha in *[!0]*) ;; *) continue ;; esac
+    case $remote_sha in *[!0]*) continue ;; esac
+    case $branch in main | master) continue ;; esac
+    if [[ ! $branch =~ ^mapring/[a-z0-9]+(-[a-z0-9]+)*$ ]] || [[ $branch =~ ^mapring/[0-9a-f]{8}$ ]]; then
+      bad+="  $branch"$'\n'
+    fi
+  done <<<"$input"
+  if [ -n "$bad" ]; then
+    {
+      echo "pre-push: new branch names must be mapring/<kebab-case summary of the work>:"
+      printf '%s' "$bad"
+      echo "Rename and push again: git branch -m <old> mapring/<summary>"
+      echo "Bypass only when pushing someone else's naming scheme: git push --no-verify"
+    } >&2
+    exit 1
+  fi
+fi
+
+local_hook="$(git rev-parse --git-common-dir)/hooks/$name"
+if [ -x "$local_hook" ] && [ "$(cd "$(dirname "$local_hook")" && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  if [ "$name" = pre-push ]; then
+    { [ -z "$input" ] || printf '%s\n' "$input"; } | "$local_hook" "$@"
+  else
+    exec "$local_hook" "$@"
+  fi
+fi
