@@ -7,7 +7,7 @@
 - Use GPT-6.2 Sol (reasoningEffort high) for sol-loop review.
 - Use linked T3 environments to delegate to `apple` or `desktop`. Ubuntu is the hub.
 - Find fleet instructions and the wake helper in `~/code/mapringg/environment`.
-- Use `desktop wake`, `desktop suspend`, and `desktop reboot-windows` for desktop power.
+- Use `desktop wake`, `desktop suspend`, and `desktop windows` for desktop power.
 - Check for active work before suspending or rebooting `desktop`.
 
 ## Sources

@@ -96,6 +96,7 @@ with open(p, "w") as f:
 PY
 ln -sf "$E/skills/secret/scripts/secret" ~/.local/bin/secret
 ln -sf "$E/bin/cliproxy-login" ~/.local/bin/
+ln -sf "$E/bin/desktop" ~/.local/bin/
 [ -f ~/.codex/config.toml ] || cp "$E/codex/config.toml" ~/.codex/config.toml
 python3 - "$CLIPROXY_URL" <<'PY'
 import os, re, sys

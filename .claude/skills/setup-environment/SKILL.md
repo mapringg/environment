@@ -17,25 +17,21 @@ Update `vendor/tstack` with `bin/vendor-refresh`.
 
 ## Desktop power
 
-Use these requests in T3 chat.
+Use the same names in T3 chat and Apple Terminal.
 
-| Request                  | What to do                                                                  |
-| ------------------------ | --------------------------------------------------------------------------- |
-| `desktop wake`           | Send Wake-on-LAN from Ubuntu. Wait until the desktop T3 environment answers. |
-| `desktop suspend`        | Check for active work, suspend Ubuntu, then confirm the desktop goes offline. |
-| `desktop reboot-windows` | Wake if needed, check for active work, then run the Windows reboot helper.    |
+| Request           | What to do                                                                  |
+| ----------------- | --------------------------------------------------------------------------- |
+| `desktop wake`    | Send Wake-on-LAN from Ubuntu. In T3, wait until the desktop answers.         |
+| `desktop suspend` | Check for active work, suspend Ubuntu, then confirm the desktop goes offline. |
+| `desktop windows` | Run the existing Windows reboot helper after checking for active work.       |
+
+On Apple, update the Environment checkout and rerun `install.sh` to put `desktop` on your PATH.
+Connect to Tailscale before running it. The terminal shortcut acts immediately.
+Before suspend or Windows, check for active work in T3. Wake the desktop first if it is offline.
 
 ### Wake
 
-Run `bin/wake-desktop` on the Ubuntu hub with the stored `DESKTOP_MAC` on standard input.
-From Apple, connect to Tailscale and run this with your signed-in 1Password CLI.
-
-```sh
-op read 'op://Dev/mapringg.machines.ops/DESKTOP_MAC' |
-  ssh ubuntu '~/code/mapringg/environment/bin/wake-desktop'
-```
-
-The helper reads the Ethernet MAC from standard input. Use the stored field without showing it in chat.
+`desktop wake` asks the Ubuntu hub to load `DESKTOP_MAC` and send the wake packet.
 Wait for the desktop T3 environment to become reachable before delegating there.
 Wake-on-LAN needs Ethernet and standby power. A full shutdown wakes only if the firmware supports it.
 
