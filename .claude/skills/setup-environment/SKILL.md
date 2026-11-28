@@ -14,3 +14,22 @@ description: Install or refresh shared tooling, provider logins, and T3 integrat
 6. Codex: `/hooks` once.
 
 Update `vendor/tstack` with `bin/vendor-refresh`.
+
+## Desktop power
+
+From Apple, connect to Tailscale and run this with your signed-in 1Password CLI.
+
+```sh
+op read 'op://Dev/mapringg.machines.ops/DESKTOP_MAC' |
+  ssh ubuntu '~/code/mapringg/environment/bin/wake-desktop'
+```
+
+The helper reads the Ethernet MAC from standard input. Use the stored field without showing it in chat.
+Wait for the desktop T3 environment to become reachable before delegating there.
+Wake-on-LAN needs Ethernet and standby power. A full shutdown wakes only if the firmware supports it.
+
+Before suspending, check for active work on the desktop. Use a terminal so sudo can prompt if needed.
+
+```sh
+ssh -t desktop 'sudo systemctl suspend'
+```
