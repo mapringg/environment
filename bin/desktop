@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+wake() (
+  if [ "$(hostname -s)" != ubuntu ]; then
+    exec ssh ubuntu 'exec ~/code/mapringg/environment/bin/desktop wake'
+  fi
+
+  wake_dir=$(mktemp -d)
+  helper="$HOME/code/mapringg/environment/bin/wake-desktop"
+  trap 'rm -rf -- "$wake_dir"' EXIT
+  cd "$wake_dir"
+  secret init mapringg.machines.ops >/dev/null
+  MISE_TRUSTED_CONFIG_PATHS="$wake_dir" MISE_ENV=ops mise exec -- bash -c \
+    'printf "%s\n" "${DESKTOP_MAC:?Desktop Ethernet MAC is missing}" | "$1"' bash "$helper"
+)
+
+windows() {
+  exec ssh -t desktop "$(cat <<'SCRIPT'
+if ! entry=$(sudo grep -m1 -oP "menuentry '\KWindows Boot Manager[^']*" /boot/grub/grub.cfg) || [ -z "$entry" ]; then
+  echo "Windows Boot Manager entry not found in /boot/grub/grub.cfg" >&2
+  exit 1
+fi
+sudo grub-reboot "$entry" && sudo reboot
+SCRIPT
+)"
+}
+
+if [ "$#" -ne 1 ]; then
+  echo 'Usage: desktop {wake|suspend|windows}' >&2
+  exit 2
+fi
+
+case "$1" in
+  wake) wake ;;
+  suspend) exec ssh -t desktop 'sudo systemctl suspend' ;;
+  windows) windows ;;
+  *)
+    echo 'Usage: desktop {wake|suspend|windows}' >&2
+    exit 2
+    ;;
+esac

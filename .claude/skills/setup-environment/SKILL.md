@@ -17,19 +17,35 @@ Update `vendor/tstack` with `bin/vendor-refresh`.
 
 ## Desktop power
 
-From Apple, connect to Tailscale and run this with your signed-in 1Password CLI.
+Use the same names in T3 chat and Apple Terminal.
 
-```sh
-op read 'op://Dev/mapringg.machines.ops/DESKTOP_MAC' |
-  ssh ubuntu '~/code/mapringg/environment/bin/wake-desktop'
-```
+| Request           | What to do                                                                  |
+| ----------------- | --------------------------------------------------------------------------- |
+| `desktop wake`    | Send Wake-on-LAN from Ubuntu. In T3, wait until the desktop answers.         |
+| `desktop suspend` | Check for active work, suspend Ubuntu, then confirm the desktop goes offline. |
+| `desktop windows` | Select Windows for the next boot after checking for active work.             |
 
-The helper reads the Ethernet MAC from standard input. Use the stored field without showing it in chat.
+On Apple, update the Environment checkout and rerun `install.sh` to put `desktop` on your PATH.
+Connect to Tailscale before running it. The terminal shortcut acts immediately.
+Before suspend or Windows, check for active work in T3. Wake the desktop first if it is offline.
+
+### Wake
+
+`desktop wake` asks the Ubuntu hub to load `DESKTOP_MAC` and send the wake packet.
 Wait for the desktop T3 environment to become reachable before delegating there.
 Wake-on-LAN needs Ethernet and standby power. A full shutdown wakes only if the firmware supports it.
+
+### Suspend
 
 Before suspending, check for active work on the desktop. Use a terminal so sudo can prompt if needed.
 
 ```sh
 ssh -t desktop 'sudo systemctl suspend'
 ```
+
+### Reboot into Windows
+
+After checking for active work, run `desktop windows` from Apple or Ubuntu Terminal.
+
+The command finds Windows Boot Manager in GRUB and sets it for the next boot only.
+Check the `windows` Tailscale device after reboot.
